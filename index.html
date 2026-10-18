@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Canlı Çizimler AR</title>
+  
+  <!-- A-Frame & MindAR Kütüphaneleri -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  
+  <!-- Yeşil Perdeyi (Chroma Key) Saydamlaştıran Shader Bileşeni -->
+  <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; }
+    
+    #overlay {
+      position: fixed; inset: 0; background: rgba(10, 10, 15, 0.94);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; color: white; text-align: center; padding: 24px;
+    }
+    .card {
+      max-width: 360px; padding: 28px 20px;
+      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 18px; backdrop-filter: blur(10px);
+    }
+    #start-btn {
+      margin-top: 20px; padding: 15px 32px; font-size: 17px; font-weight: bold;
+      background: #007aff; color: white; border: none; border-radius: 30px; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 122, 255, 0.4);
+    }
+    #scan-box {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 250px; height: 250px; border: 2px dashed rgba(255,255,255,0.45);
+      border-radius: 16px; pointer-events: none; display: none; z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="overlay">
+    <div class="card">
+      <h2 style="margin: 0 0 10px 0;">AR Deneyimi</h2>
+      <p style="margin: 0; color: #ccc; font-size: 15px;">Kamerayı çizime tutarak animasyonu başlatın.</p>
+      <button id="start-btn">Kamerayı Aç</button>
+    </div>
+  </div>
+
+  <div id="scan-box"></div>
+
+  <a-scene 
+    id="ar-scene"
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no;" 
+    color-space="sRGB" 
+    renderer="colorManagement: true, physicallyCorrectLights: false" 
+    vr-mode-ui="enabled: false" 
+    device-orientation-permission-ui="enabled: false">
+    
+    <a-assets id="asset-container"></a-assets>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  </a-scene>
+
+  <script>
+    const sceneEl = document.getElementById('ar-scene');
+    const assetContainer = document.getElementById('asset-container');
+    const overlay = document.getElementById('overlay');
+    const startBtn = document.getElementById('start-btn');
+    const scanBox = document.getElementById('scan-box');
+
+    let loadedVideos = [];
+
+    async function initAR() {
+      try {
+        const response = await fetch('./manifest.json');
+        const items = await response.json();
+
+        items.forEach(item => {
+          // iOS Safari ve Chrome için video elementi
+          const video = document.createElement('video');
+          video.setAttribute('id', `vid-${item.id}`);
+          video.setAttribute('src', item.video);
+          video.setAttribute('loop', 'true');
+          video.setAttribute('playsinline', '');
+          video.setAttribute('webkit-playsinline', '');
+          video.setAttribute('crossorigin', 'anonymous');
+          video.setAttribute('muted', '');
+          video.muted = true; // iOS için sessiz oynatma zorunludur
+          video.setAttribute('preload', 'auto');
+          
+          assetContainer.appendChild(video);
+          loadedVideos.push(video);
+
+          // MindAR Hedef Tanımı
+          const targetEntity = document.createElement('a-entity');
+          targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
+          targetEntity.setAttribute('class', 'ar-item');
+
+          // Yeşil Perdeyi Temizleyen Düzlem (Plane)
+          // color: 0.0 1.0 0.0 (RGB yeşil eşiği)
+          const chromakeyPlane = document.createElement('a-plane');
+          chromakeyPlane.setAttribute('material', `shader: chromakey; src: #vid-${item.id}; color: 0.0 1.0 0.0;`);
+          chromakeyPlane.setAttribute('width', item.width || 1);
+          chromakeyPlane.setAttribute('height', item.height || 1);
+          chromakeyPlane.setAttribute('position', '0 0 0');
+
+          targetEntity.appendChild(chromakeyPlane);
+          sceneEl.appendChild(targetEntity);
+
+          // Çizim algılandığında oynat
+          targetEntity.addEventListener('targetFound', () => {
+            scanBox.style.display = 'none';
+            video.muted = true;
+            video.play().catch(e => console.warn('Oynatma engellendi:', e));
+          });
+
+          // Çizim kadrajdan çıktığında duraklat
+          targetEntity.addEventListener('targetLost', () => {
+            scanBox.style.display = 'block';
+            video.pause();
+          });
+        });
+      } catch (err) {
+        console.error("Manifest veya asset yükleme hatası:", err);
+      }
+    }
+
+    startBtn.addEventListener('click', async () => {
+      // iOS kısıtlamasını aşmak için kullanıcı etkileşimiyle videoların kilidini aç
+      loadedVideos.forEach(v => {
+        v.play().then(() => v.pause()).catch(() => {});
+      });
+
+      overlay.style.display = 'none';
+      scanBox.style.display = 'block';
+
+      // MindAR kamera motorunu başlat
+      const arSystem = sceneEl.systems['mindar-image-system'];
+      await arSystem.start();
+    });
+
+    initAR();
+  </script>
+</body>
+</html>
