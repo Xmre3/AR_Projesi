@@ -2,28 +2,32 @@
   {
     "id": 0,
     "title": "cizim01",
-    "video": "./assets/anim01.mp4",
+    "video_ios": "./assets/anim01.mov",
+    "video_android": "./assets/anim01.webm",
     "width": 1.0,
     "height": 1.0
   },
   {
     "id": 1,
     "title": "cizim02",
-    "video": "./assets/anim02.mp4",
+    "video_ios": "./assets/anim01.mov",
+    "video_android": "./assets/anim01.webm",
     "width": 1.0,
     "height": 1.0
   },
   {
     "id": 2,
     "title": "cizim03",
-    "video": "./assets/anim03.mp4",
+    "video_ios": "./assets/anim01.mov",
+    "video_android": "./assets/anim01.webm",
     "width": 1.0,
     "height": 1.0
   },
   {
     "id": 3,
     "title": "cizim04",
-    "video": "./assets/anim04.mp4",
+    "video_ios": "./assets/anim01.mov",
+    "video_android": "./assets/anim01.webm",
     "width": 1.0,
     "height": 1.0
   }

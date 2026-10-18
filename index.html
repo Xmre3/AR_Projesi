@@ -34,7 +34,7 @@
       border-radius: 16px; pointer-events: none; display: none; z-index: 10;
     }
     
-    /* Ses Aç/Kapat Butonu */
+    /* Ses Butonu */
     #sound-btn {
       position: fixed; top: 20px; right: 20px; z-index: 1000;
       width: 48px; height: 48px; border-radius: 50%;
@@ -61,9 +61,10 @@
   <div id="scan-box"></div>
   <button id="sound-btn" aria-label="Sesi Aç/Kapat">🔇</button>
 
+  <!-- Titreme Önleyici Filtreler (filterMinCF ve filterBeta) Entegre Edildi -->
   <a-scene 
     id="ar-scene"
-    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no;" 
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; filterMinCF: 0.001; filterBeta: 1000;" 
     color-space="sRGB" 
     renderer="colorManagement: true, physicallyCorrectLights: false" 
     vr-mode-ui="enabled: false" 
@@ -85,22 +86,27 @@
     let isMuted = true;
     let activeVideo = null;
 
+    // iOS / Apple Cihaz Tespiti
+    const isAppleDevice = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && !window.MSStream;
+
     async function initAR() {
       try {
         const response = await fetch('./manifest.json');
         const items = await response.json();
 
         items.forEach(item => {
-          // Video elementi
+          // Cihaza göre uygun video dosyasını seç
+          const videoSrc = (isAppleDevice && item.video_ios) ? item.video_ios : (item.video_android || item.video);
+
           const video = document.createElement('video');
           video.setAttribute('id', `vid-${item.id}`);
-          video.setAttribute('src', item.video);
+          video.setAttribute('src', videoSrc);
           video.setAttribute('loop', 'true');
           video.setAttribute('playsinline', '');
           video.setAttribute('webkit-playsinline', '');
           video.setAttribute('crossorigin', 'anonymous');
           video.setAttribute('preload', 'auto');
-          video.muted = true; // Tarayıcı otoplay kuralı gereği sessiz başlar
+          video.muted = true;
           
           assetContainer.appendChild(video);
           loadedVideos.push(video);
@@ -110,14 +116,14 @@
           targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
           targetEntity.setAttribute('class', 'ar-item');
 
-          // Standart A-Frame Video Düzlemi (Yeşil perde shader'ı kaldırıldı)
-          const videoPlane = document.createElement('a-video');
-          videoPlane.setAttribute('src', `#vid-${item.id}`);
-          videoPlane.setAttribute('width', item.width || 1);
-          videoPlane.setAttribute('height', item.height || 1);
-          videoPlane.setAttribute('position', '0 0 0');
+          // Saydam Materyalli Düzlem (Plane)
+          const transparentPlane = document.createElement('a-plane');
+          transparentPlane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.05; shader: flat;`);
+          transparentPlane.setAttribute('width', item.width || 1);
+          transparentPlane.setAttribute('height', item.height || 1);
+          transparentPlane.setAttribute('position', '0 0 0');
 
-          targetEntity.appendChild(videoPlane);
+          targetEntity.appendChild(transparentPlane);
           sceneEl.appendChild(targetEntity);
 
           // Çizim algılandığında oynat
@@ -138,36 +144,33 @@
           });
         });
       } catch (err) {
-        console.error("Manifest veya asset yükleme hatası:", err);
+        console.error("Manifest yükleme hatası:", err);
       }
     }
 
-    // Ses Aç / Kapat Buton Mantığı
+    // Ses Aç / Kapat
     soundBtn.addEventListener('click', () => {
       isMuted = !isMuted;
       soundBtn.textContent = isMuted ? '🔇' : '🔊';
 
-      // Tüm videoların ses durumunu güncelle
       loadedVideos.forEach(v => {
         v.muted = isMuted;
       });
 
-      // Aktif oynayan video varsa sesini hemen aç/kıs
       if (activeVideo) {
         activeVideo.muted = isMuted;
       }
     });
 
-    // Başlatma Butonu
+    // Başlat
     startBtn.addEventListener('click', async () => {
-      // iOS ses ve video kilidini açmak için ilk kullanıcı etkileşimi
       loadedVideos.forEach(v => {
         v.play().then(() => v.pause()).catch(() => {});
       });
 
       overlay.style.display = 'none';
       scanBox.style.display = 'block';
-      soundBtn.style.display = 'flex'; // Butonu görünür yap
+      soundBtn.style.display = 'flex';
 
       const arSystem = sceneEl.systems['mindar-image-system'];
       await arSystem.start();
