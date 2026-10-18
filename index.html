@@ -33,8 +33,6 @@
       width: 250px; height: 250px; border: 2px dashed rgba(255,255,255,0.45);
       border-radius: 16px; pointer-events: none; display: none; z-index: 10;
     }
-    
-    /* Ses Butonu */
     #sound-btn {
       position: fixed; top: 20px; right: 20px; z-index: 1000;
       width: 48px; height: 48px; border-radius: 50%;
@@ -61,7 +59,6 @@
   <div id="scan-box"></div>
   <button id="sound-btn" aria-label="Sesi Aç/Kapat">🔇</button>
 
-  <!-- Titreme Önleyici Filtreler (filterMinCF ve filterBeta) Entegre Edildi -->
   <a-scene 
     id="ar-scene"
     mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; filterMinCF: 0.001; filterBeta: 1000;" 
@@ -86,28 +83,44 @@
     let isMuted = true;
     let activeVideo = null;
 
-    // iOS / Apple Cihaz Tespiti
-    const isAppleDevice = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && !window.MSStream;
-
     async function initAR() {
       try {
         const response = await fetch('./manifest.json');
         const items = await response.json();
 
         items.forEach(item => {
-          // Cihaza göre uygun video dosyasını seç
-          const videoSrc = (isAppleDevice && item.video_ios) ? item.video_ios : (item.video_android || item.video);
-
           const video = document.createElement('video');
           video.setAttribute('id', `vid-${item.id}`);
-          video.setAttribute('src', videoSrc);
           video.setAttribute('loop', 'true');
           video.setAttribute('playsinline', '');
           video.setAttribute('webkit-playsinline', '');
           video.setAttribute('crossorigin', 'anonymous');
           video.setAttribute('preload', 'auto');
           video.muted = true;
+
+          // Dosya yolunu belirle: manifest'te direkt "video" varsa onu alır
+          const primaryPath = item.video || item.video_ios;
           
+          // Uzantıya göre uygun MIME tipini belirle
+          const isMov = primaryPath.toLowerCase().endsWith('.mov');
+          const isWebm = primaryPath.toLowerCase().endsWith('.webm');
+          const mimeType = isMov ? 'video/quicktime' : (isWebm ? 'video/webm' : 'video/mp4');
+
+          // 1. Birincil kaynak
+          const source1 = document.createElement('source');
+          source1.setAttribute('src', primaryPath);
+          source1.setAttribute('type', mimeType);
+          video.appendChild(source1);
+
+          // 2. Yedek kaynak: Eğer .mov yazdıysanız ama klasörde .mp4'ü de varsa otomatik yedekler
+          if (isMov) {
+            const fallbackPath = primaryPath.replace(/\.mov$/i, '.mp4');
+            const source2 = document.createElement('source');
+            source2.setAttribute('src', fallbackPath);
+            source2.setAttribute('type', 'video/mp4');
+            video.appendChild(source2);
+          }
+
           assetContainer.appendChild(video);
           loadedVideos.push(video);
 
@@ -116,14 +129,14 @@
           targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
           targetEntity.setAttribute('class', 'ar-item');
 
-          // Saydam Materyalli Düzlem (Plane)
-          const transparentPlane = document.createElement('a-plane');
-          transparentPlane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.05; shader: flat;`);
-          transparentPlane.setAttribute('width', item.width || 1);
-          transparentPlane.setAttribute('height', item.height || 1);
-          transparentPlane.setAttribute('position', '0 0 0');
+          // Düzlem: Saydamlık (alpha) açık
+          const plane = document.createElement('a-plane');
+          plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.05; shader: flat;`);
+          plane.setAttribute('width', item.width || 1);
+          plane.setAttribute('height', item.height || 1);
+          plane.setAttribute('position', '0 0 0');
 
-          targetEntity.appendChild(transparentPlane);
+          targetEntity.appendChild(plane);
           sceneEl.appendChild(targetEntity);
 
           // Çizim algılandığında oynat
