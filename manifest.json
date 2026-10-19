@@ -3,7 +3,6 @@
     "id": 0,
     "title": "cizim01",
     "video": "./assets/anim01.mp4",
-    "chromakey": true,
     "width": 1,
     "height": 0.5625
   },
@@ -11,7 +10,6 @@
     "id": 1,
     "title": "cizim02",
     "video": "./assets/anim02.mp4",
-    "chromakey": true,
     "width": 1,
     "height": 0.5625
   },
@@ -19,7 +17,6 @@
     "id": 2,
     "title": "cizim03",
     "video": "./assets/anim03.mp4",
-    "chromakey": true,
     "width": 1,
     "height": 0.5625
   },
@@ -27,15 +24,14 @@
     "id": 3,
     "title": "cizim04",
     "video": "./assets/anim04.mp4",
-    "chromakey": true,
     "width": 1,
     "height": 0.5625
   },
   {
-    "id": 4,
+    "id": 0,
     "title": "cizim05",
     "video": "./assets/anim05.mp4",
-    "width": 1,
-    "height": 0.5625
+    "width": 1.0,
+    "height": 1.0
   }
 ]
