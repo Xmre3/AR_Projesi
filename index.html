@@ -8,6 +8,9 @@
   <!-- A-Frame & MindAR Kütüphaneleri -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  
+  <!-- Yeşil Perdeyi Saydamlaştıran Shader Bileşeni -->
+  <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -83,44 +86,28 @@
     let isMuted = true;
     let activeVideo = null;
 
+    // Apple Cihaz Kontrolü
+    const isAppleDevice = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && !window.MSStream;
+
     async function initAR() {
       try {
         const response = await fetch('./manifest.json');
         const items = await response.json();
 
         items.forEach(item => {
+          // Cihaza göre uygun video dosyasını seç
+          const videoSrc = (isAppleDevice && item.video_ios) ? item.video_ios : (item.video_android || item.video);
+
           const video = document.createElement('video');
           video.setAttribute('id', `vid-${item.id}`);
+          video.setAttribute('src', videoSrc);
           video.setAttribute('loop', 'true');
           video.setAttribute('playsinline', '');
           video.setAttribute('webkit-playsinline', '');
           video.setAttribute('crossorigin', 'anonymous');
           video.setAttribute('preload', 'auto');
           video.muted = true;
-
-          // Dosya yolunu belirle: manifest'te direkt "video" varsa onu alır
-          const primaryPath = item.video || item.video_ios;
           
-          // Uzantıya göre uygun MIME tipini belirle
-          const isMov = primaryPath.toLowerCase().endsWith('.mov');
-          const isWebm = primaryPath.toLowerCase().endsWith('.webm');
-          const mimeType = isMov ? 'video/quicktime' : (isWebm ? 'video/webm' : 'video/mp4');
-
-          // 1. Birincil kaynak
-          const source1 = document.createElement('source');
-          source1.setAttribute('src', primaryPath);
-          source1.setAttribute('type', mimeType);
-          video.appendChild(source1);
-
-          // 2. Yedek kaynak: Eğer .mov yazdıysanız ama klasörde .mp4'ü de varsa otomatik yedekler
-          if (isMov) {
-            const fallbackPath = primaryPath.replace(/\.mov$/i, '.mp4');
-            const source2 = document.createElement('source');
-            source2.setAttribute('src', fallbackPath);
-            source2.setAttribute('type', 'video/mp4');
-            video.appendChild(source2);
-          }
-
           assetContainer.appendChild(video);
           loadedVideos.push(video);
 
@@ -129,12 +116,20 @@
           targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
           targetEntity.setAttribute('class', 'ar-item');
 
-          // Düzlem: Saydamlık (alpha) açık
+          // Düzlem Tanımlama
           const plane = document.createElement('a-plane');
-          plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.05; shader: flat;`);
           plane.setAttribute('width', item.width || 1);
           plane.setAttribute('height', item.height || 1);
           plane.setAttribute('position', '0 0 0');
+
+          // ŞARTLI ALFA / YEŞİL PERDE KONTROLÜ
+          if (item.chromakey === true) {
+            // Arkası yeşilse: Shader ile yeşili saydamlaştır
+            plane.setAttribute('material', `shader: chromakey; src: #vid-${item.id}; color: 0.0 1.0 0.0;`);
+          } else {
+            // Zaten alfalı MOV / WebM veya standart ise: Standart transparan materyal
+            plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.05; shader: flat;`);
+          }
 
           targetEntity.appendChild(plane);
           sceneEl.appendChild(targetEntity);
@@ -147,7 +142,7 @@
             video.play().catch(e => console.warn('Oynatma engellendi:', e));
           });
 
-          // Çizim kadrajdan çıktığında duraklat
+          // Çizim kaybolduğunda durdur
           targetEntity.addEventListener('targetLost', () => {
             scanBox.style.display = 'block';
             video.pause();
@@ -161,7 +156,7 @@
       }
     }
 
-    // Ses Aç / Kapat
+    // Ses Aç / Kapat Butonu
     soundBtn.addEventListener('click', () => {
       isMuted = !isMuted;
       soundBtn.textContent = isMuted ? '🔇' : '🔊';
@@ -175,7 +170,7 @@
       }
     });
 
-    // Başlat
+    // Başlat Butonu
     startBtn.addEventListener('click', async () => {
       loadedVideos.forEach(v => {
         v.play().then(() => v.pause()).catch(() => {});
