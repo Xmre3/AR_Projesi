@@ -27,7 +27,15 @@
     "id": 3,
     "title": "cizim04",
     "video": "./assets/anim04.mp4",
-    "chromakey": false,
+    "chromakey": true,
+    "width": 1,
+    "height": 0.5625
+  },
+  {
+    "id": 4,
+    "title": "cizim05",
+    "video": "./assets/anim05.mov",
+    "chromakey": true,
     "width": 1,
     "height": 0.5625
   }
