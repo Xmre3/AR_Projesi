@@ -34,8 +34,7 @@
   {
     "id": 4,
     "title": "cizim05",
-    "video": "./assets/anim05.mov",
-    "chromakey": true,
+    "video": "./assets/anim05.mp4",
     "width": 1,
     "height": 0.5625
   }

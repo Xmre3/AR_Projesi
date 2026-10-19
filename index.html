@@ -8,9 +8,6 @@
   <!-- A-Frame & MindAR Kütüphaneleri -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  
-  <!-- Yeşil Perdeyi (Chroma Key) Şeffaflaştıran Shader -->
-  <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -37,7 +34,6 @@
       border-radius: 16px; pointer-events: none; display: none; z-index: 10;
     }
     
-    /* Ses Butonu */
     #sound-btn {
       position: fixed; top: env(safe-area-inset-top, 20px); right: 20px; z-index: 1000;
       width: 50px; height: 50px; border-radius: 50%;
@@ -50,6 +46,59 @@
       -webkit-tap-highlight-color: transparent;
     }
   </style>
+
+  <!-- SPLIT-ALPHA WEBGL SHADER BİLEŞENİ -->
+  <script>
+    AFRAME.registerComponent('split-alpha-material', {
+      schema: {
+        src: { type: 'selector' }
+      },
+      init: function () {
+        const videoEl = this.data.src;
+        const texture = new THREE.VideoTexture(videoEl);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.format = THREE.RGBAFormat;
+
+        this.material = new THREE.ShaderMaterial({
+          uniforms: {
+            uTexture: { value: texture }
+          },
+          vertexShader: `
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform sampler2D uTexture;
+            varying vec2 vUv;
+            void main() {
+              // Üst yarıdan renk bilgisini çek (y: 0.5 - 1.0)
+              vec2 colorUv = vec2(vUv.x, vUv.y * 0.5 + 0.5);
+              vec4 color = texture2D(uTexture, colorUv);
+
+              // Alt yarıdan maske bilgisini çek (y: 0.0 - 0.5)
+              vec2 maskUv = vec2(vUv.x, vUv.y * 0.5);
+              vec4 mask = texture2D(uTexture, maskUv);
+
+              // Maskenin kırmızısını şeffaflık olarak kullan
+              float alpha = mask.r;
+
+              if (alpha < 0.01) discard; // Şeffaf yerleri tamamen render dışı bırak
+
+              gl_FragColor = vec4(color.rgb, alpha);
+            }
+          `,
+          transparent: true,
+          side: THREE.DoubleSide
+        });
+
+        this.el.getObject3D('mesh').material = this.material;
+      }
+    });
+  </script>
 </head>
 <body>
 
@@ -108,30 +157,22 @@
           assetContainer.appendChild(video);
           loadedVideos.push(video);
 
-          // MindAR Hedef Tanımı
           const targetEntity = document.createElement('a-entity');
           targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
           targetEntity.setAttribute('class', 'ar-item');
 
-          // Düzlem Oluşturma
+          // Düzlem oluşturma
           const plane = document.createElement('a-plane');
           plane.setAttribute('width', item.width || 1);
           plane.setAttribute('height', item.height || 1);
           plane.setAttribute('position', '0 0 0');
 
-          // CHROMA KEY MANTIĞI:
-          if (item.chromakey === true) {
-            // Arkası yeşilse yeşili temizle
-            plane.setAttribute('material', `shader: chromakey; src: #vid-${item.id}; color: 0.0 1.0 0.0; side: double;`);
-          } else {
-            // Arkası normal video ise standart göster
-            plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.01; shader: flat; side: double;`);
-          }
+          // Split-Alpha Shader bağlantısı
+          plane.setAttribute('split-alpha-material', `src: #vid-${item.id}`);
 
           targetEntity.appendChild(plane);
           sceneEl.appendChild(targetEntity);
 
-          // Çizim algılandığında oynat
           targetEntity.addEventListener('targetFound', () => {
             scanBox.style.display = 'none';
             activeVideo = video;
@@ -139,7 +180,6 @@
             video.play().catch(e => console.warn('Video oynatılamadı:', e));
           });
 
-          // Çizim kaybolduğunda durdur
           targetEntity.addEventListener('targetLost', () => {
             scanBox.style.display = 'block';
             video.pause();
@@ -167,7 +207,7 @@
       }
     });
 
-    // Başlatma ve iOS Donanım Kilidini Açma
+    // Başlat Butonu
     startBtn.addEventListener('click', async () => {
       loadedVideos.forEach(v => {
         v.play().then(() => v.pause()).catch(() => {});
