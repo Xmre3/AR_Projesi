@@ -28,10 +28,17 @@
     "height": 0.5625
   },
   {
-    "id": 0,
+    "id": 4,
     "title": "cizim05",
     "video": "./assets/anim05.mp4",
     "width": 1.0,
     "height": 1.0
+  },
+  {
+    "id": 5,
+    "title": "cizim06",
+    "video": "./assets/anim06.mp4",
+    "width": 1,
+    "height": 0.5625
   }
 ]
