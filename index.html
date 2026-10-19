@@ -8,6 +8,9 @@
   <!-- A-Frame & MindAR Kütüphaneleri -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  
+  <!-- Yeşil Perdeyi (Chroma Key) Şeffaflaştıran Shader -->
+  <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -33,6 +36,8 @@
       width: 250px; height: 250px; border: 2px dashed rgba(255,255,255,0.45);
       border-radius: 16px; pointer-events: none; display: none; z-index: 10;
     }
+    
+    /* Ses Butonu */
     #sound-btn {
       position: fixed; top: env(safe-area-inset-top, 20px); right: 20px; z-index: 1000;
       width: 50px; height: 50px; border-radius: 50%;
@@ -108,12 +113,20 @@
           targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
           targetEntity.setAttribute('class', 'ar-item');
 
-          // Standart Düzlem (Yeşil perde temizleme kaldırıldı, doğrudan video dokusu atanır)
+          // Düzlem Oluşturma
           const plane = document.createElement('a-plane');
-          plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.01; shader: flat; side: double;`);
           plane.setAttribute('width', item.width || 1);
           plane.setAttribute('height', item.height || 1);
           plane.setAttribute('position', '0 0 0');
+
+          // CHROMA KEY MANTIĞI:
+          if (item.chromakey === true) {
+            // Arkası yeşilse yeşili temizle
+            plane.setAttribute('material', `shader: chromakey; src: #vid-${item.id}; color: 0.0 1.0 0.0; side: double;`);
+          } else {
+            // Arkası normal video ise standart göster
+            plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.01; shader: flat; side: double;`);
+          }
 
           targetEntity.appendChild(plane);
           sceneEl.appendChild(targetEntity);
