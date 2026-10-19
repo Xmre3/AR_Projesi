@@ -33,8 +33,6 @@
       width: 250px; height: 250px; border: 2px dashed rgba(255,255,255,0.45);
       border-radius: 16px; pointer-events: none; display: none; z-index: 10;
     }
-    
-    /* Ses Aç/Kapat Butonu (iOS Safe-Area Uyumlu) */
     #sound-btn {
       position: fixed; top: env(safe-area-inset-top, 20px); right: 20px; z-index: 1000;
       width: 50px; height: 50px; border-radius: 50%;
@@ -61,7 +59,6 @@
   <div id="scan-box"></div>
   <button id="sound-btn" aria-label="Sesi Aç/Kapat">🔇</button>
 
-  <!-- iOS Titreme Engelleme Filtresi -->
   <a-scene 
     id="ar-scene"
     mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; filterMinCF: 0.001; filterBeta: 1000;" 
@@ -92,7 +89,6 @@
         const items = await response.json();
 
         items.forEach(item => {
-          // iOS Safari Uyumlu Video Elementi
           const video = document.createElement('video');
           video.setAttribute('id', `vid-${item.id}`);
           video.setAttribute('src', item.video);
@@ -101,8 +97,6 @@
           video.setAttribute('webkit-playsinline', '');
           video.setAttribute('crossorigin', 'anonymous');
           video.setAttribute('preload', 'auto');
-          
-          // iOS'un otomatik oynatmaya izin vermesi için muted şarttır
           video.muted = true;
           video.setAttribute('muted', '');
 
@@ -114,9 +108,8 @@
           targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
           targetEntity.setAttribute('class', 'ar-item');
 
-          // Şeffaflık (Alpha) Düzlemi
+          // Standart Düzlem (Yeşil perde temizleme kaldırıldı, doğrudan video dokusu atanır)
           const plane = document.createElement('a-plane');
-          // blending: normal ve alphaTest şeffaf kanalların siyahlaşmasını engeller
           plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.01; shader: flat; side: double;`);
           plane.setAttribute('width', item.width || 1);
           plane.setAttribute('height', item.height || 1);
@@ -163,7 +156,6 @@
 
     // Başlatma ve iOS Donanım Kilidini Açma
     startBtn.addEventListener('click', async () => {
-      // iOS WebKit'te ilk dokunuşta tüm video kanallarının kilidini aç
       loadedVideos.forEach(v => {
         v.play().then(() => v.pause()).catch(() => {});
       });
