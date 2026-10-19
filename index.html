@@ -2,15 +2,12 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Canlı Çizimler AR</title>
   
   <!-- A-Frame & MindAR Kütüphaneleri -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  
-  <!-- Yeşil Perdeyi Saydamlaştıran Shader Bileşeni -->
-  <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -36,14 +33,16 @@
       width: 250px; height: 250px; border: 2px dashed rgba(255,255,255,0.45);
       border-radius: 16px; pointer-events: none; display: none; z-index: 10;
     }
+    
+    /* Ses Aç/Kapat Butonu (iOS Safe-Area Uyumlu) */
     #sound-btn {
-      position: fixed; top: 20px; right: 20px; z-index: 1000;
-      width: 48px; height: 48px; border-radius: 50%;
-      background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.3);
-      color: white; font-size: 20px; cursor: pointer; display: none;
+      position: fixed; top: env(safe-area-inset-top, 20px); right: 20px; z-index: 1000;
+      width: 50px; height: 50px; border-radius: 50%;
+      background: rgba(0, 0, 0, 0.65); border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white; font-size: 22px; cursor: pointer; display: none;
       align-items: center; justify-content: center;
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-      backdrop-filter: blur(5px);
+      backdrop-filter: blur(8px);
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
@@ -62,11 +61,12 @@
   <div id="scan-box"></div>
   <button id="sound-btn" aria-label="Sesi Aç/Kapat">🔇</button>
 
+  <!-- iOS Titreme Engelleme Filtresi -->
   <a-scene 
     id="ar-scene"
     mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; filterMinCF: 0.001; filterBeta: 1000;" 
     color-space="sRGB" 
-    renderer="colorManagement: true, physicallyCorrectLights: false" 
+    renderer="colorManagement: true, physicallyCorrectLights: false, alpha: true" 
     vr-mode-ui="enabled: false" 
     device-orientation-permission-ui="enabled: false">
     
@@ -86,28 +86,26 @@
     let isMuted = true;
     let activeVideo = null;
 
-    // Apple Cihaz Kontrolü
-    const isAppleDevice = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && !window.MSStream;
-
     async function initAR() {
       try {
         const response = await fetch('./manifest.json');
         const items = await response.json();
 
         items.forEach(item => {
-          // Cihaza göre uygun video dosyasını seç
-          const videoSrc = (isAppleDevice && item.video_ios) ? item.video_ios : (item.video_android || item.video);
-
+          // iOS Safari Uyumlu Video Elementi
           const video = document.createElement('video');
           video.setAttribute('id', `vid-${item.id}`);
-          video.setAttribute('src', videoSrc);
+          video.setAttribute('src', item.video);
           video.setAttribute('loop', 'true');
           video.setAttribute('playsinline', '');
           video.setAttribute('webkit-playsinline', '');
           video.setAttribute('crossorigin', 'anonymous');
           video.setAttribute('preload', 'auto');
-          video.muted = true;
           
+          // iOS'un otomatik oynatmaya izin vermesi için muted şarttır
+          video.muted = true;
+          video.setAttribute('muted', '');
+
           assetContainer.appendChild(video);
           loadedVideos.push(video);
 
@@ -116,20 +114,13 @@
           targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
           targetEntity.setAttribute('class', 'ar-item');
 
-          // Düzlem Tanımlama
+          // Şeffaflık (Alpha) Düzlemi
           const plane = document.createElement('a-plane');
+          // blending: normal ve alphaTest şeffaf kanalların siyahlaşmasını engeller
+          plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.01; shader: flat; side: double;`);
           plane.setAttribute('width', item.width || 1);
           plane.setAttribute('height', item.height || 1);
           plane.setAttribute('position', '0 0 0');
-
-          // ŞARTLI ALFA / YEŞİL PERDE KONTROLÜ
-          if (item.chromakey === true) {
-            // Arkası yeşilse: Shader ile yeşili saydamlaştır
-            plane.setAttribute('material', `shader: chromakey; src: #vid-${item.id}; color: 0.0 1.0 0.0;`);
-          } else {
-            // Zaten alfalı MOV / WebM veya standart ise: Standart transparan materyal
-            plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.05; shader: flat;`);
-          }
 
           targetEntity.appendChild(plane);
           sceneEl.appendChild(targetEntity);
@@ -139,7 +130,7 @@
             scanBox.style.display = 'none';
             activeVideo = video;
             video.muted = isMuted;
-            video.play().catch(e => console.warn('Oynatma engellendi:', e));
+            video.play().catch(e => console.warn('Video oynatılamadı:', e));
           });
 
           // Çizim kaybolduğunda durdur
@@ -156,7 +147,7 @@
       }
     }
 
-    // Ses Aç / Kapat Butonu
+    // Ses Aç / Kapat
     soundBtn.addEventListener('click', () => {
       isMuted = !isMuted;
       soundBtn.textContent = isMuted ? '🔇' : '🔊';
@@ -170,8 +161,9 @@
       }
     });
 
-    // Başlat Butonu
+    // Başlatma ve iOS Donanım Kilidini Açma
     startBtn.addEventListener('click', async () => {
+      // iOS WebKit'te ilk dokunuşta tüm video kanallarının kilidini aç
       loadedVideos.forEach(v => {
         v.play().then(() => v.pause()).catch(() => {});
       });
