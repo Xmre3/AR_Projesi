@@ -5,51 +5,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Canlı Çizimler AR</title>
   
-  <!-- A-Frame & MindAR Kütüphaneleri -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  
-  <!-- Yeşil Perdeyi (Chroma Key) Şeffaflaştıran Shader -->
-  <script src="https://unpkg.com/aframe-chromakey-material/dist/aframe-chromakey-material.min.js"></script>
 
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; }
-    
-    #overlay {
-      position: fixed; inset: 0; background: rgba(10, 10, 15, 0.94);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      z-index: 9999; color: white; text-align: center; padding: 24px;
-    }
-    .card {
-      max-width: 360px; padding: 28px 20px;
-      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 18px; backdrop-filter: blur(10px);
-    }
-    #start-btn {
-      margin-top: 20px; padding: 15px 32px; font-size: 17px; font-weight: bold;
-      background: #007aff; color: white; border: none; border-radius: 30px; cursor: pointer;
-      box-shadow: 0 4px 14px rgba(0, 122, 255, 0.4);
-    }
-    #scan-box {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 250px; height: 250px; border: 2px dashed rgba(255,255,255,0.45);
-      border-radius: 16px; pointer-events: none; display: none; z-index: 10;
-    }
-    
-    /* Ses Butonu */
-    #sound-btn {
-      position: fixed; top: env(safe-area-inset-top, 20px); right: 20px; z-index: 1000;
-      width: 50px; height: 50px; border-radius: 50%;
-      background: rgba(0, 0, 0, 0.65); border: 1px solid rgba(255, 255, 255, 0.3);
-      color: white; font-size: 22px; cursor: pointer; display: none;
-      align-items: center; justify-content: center;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-      backdrop-filter: blur(8px);
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
+    #overlay { position: fixed; inset: 0; background: rgba(10, 10, 15, 0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; color: white; text-align: center; padding: 24px; }
+    .card { max-width: 360px; padding: 28px 20px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 18px; backdrop-filter: blur(10px); }
+    #start-btn { margin-top: 20px; padding: 15px 32px; font-size: 17px; font-weight: bold; background: #007aff; color: white; border: none; border-radius: 30px; cursor: pointer; }
+    #scan-box { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 250px; height: 250px; border: 2px dashed rgba(255,255,255,0.45); border-radius: 16px; pointer-events: none; display: none; z-index: 10; }
+    #sound-btn { position: fixed; top: env(safe-area-inset-top, 20px); right: 20px; z-index: 1000; width: 50px; height: 50px; border-radius: 50%; background: rgba(0, 0, 0, 0.65); border: 1px solid rgba(255, 255, 255, 0.3); color: white; font-size: 22px; cursor: pointer; display: none; align-items: center; justify-content: center; }
   </style>
+
+  <!-- YÜKSEK TOLERANSLI GELİŞMİŞ YEŞİL PERDE GÖLGELENDİRİCİSİ -->
+  <script>
+    AFRAME.registerComponent('chromakey-pro', {
+      schema: {
+        src: { type: 'selector' },
+        color: { type: 'color', default: '#00FF00' },
+        similarity: { type: 'number', default: 0.42 }, // Yeşil silme aralığı (0.42 geniş bir yeşil havuzunu siler)
+        smoothness: { type: 'number', default: 0.08 }  // Kenar yumuşaklığı
+      },
+      init: function () {
+        const videoEl = this.data.src;
+        const texture = new THREE.VideoTexture(videoEl);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.format = THREE.RGBAFormat;
+
+        const targetColor = new THREE.Color(this.data.color);
+
+        this.material = new THREE.ShaderMaterial({
+          uniforms: {
+            uTexture: { value: texture },
+            uColor: { value: targetColor },
+            uSimilarity: { value: this.data.similarity },
+            uSmoothness: { value: this.data.smoothness }
+          },
+          vertexShader: `
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform sampler2D uTexture;
+            uniform vec3 uColor;
+            uniform float uSimilarity;
+            uniform float uSmoothness;
+            varying vec2 vUv;
+
+            void main() {
+              vec4 texColor = texture2D(uTexture, vUv);
+              
+              // Renk farkını hesapla (Öklid mesafesi)
+              float diff = distance(texColor.rgb, uColor);
+              
+              // Tolerans aralığına göre alfa değerini belirle
+              float alpha = smoothstep(uSimilarity, uSimilarity + uSmoothness, diff);
+              
+              if (alpha < 0.02) discard; // Arka planı tamamen yok et
+
+              gl_FragColor = vec4(texColor.rgb, alpha);
+            }
+          `,
+          transparent: true,
+          side: THREE.DoubleSide
+        });
+
+        this.el.getObject3D('mesh').material = this.material;
+      }
+    });
+  </script>
 </head>
 <body>
 
@@ -108,30 +137,25 @@
           assetContainer.appendChild(video);
           loadedVideos.push(video);
 
-          // MindAR Hedef Tanımı
           const targetEntity = document.createElement('a-entity');
           targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
           targetEntity.setAttribute('class', 'ar-item');
 
-          // Düzlem Oluşturma
           const plane = document.createElement('a-plane');
           plane.setAttribute('width', item.width || 1);
           plane.setAttribute('height', item.height || 1);
           plane.setAttribute('position', '0 0 0');
 
-          // CHROMA KEY MANTIĞI:
           if (item.chromakey === true) {
-            // Arkası yeşilse yeşili temizle
-            plane.setAttribute('material', `shader: chromakey; src: #vid-${item.id}; color: 0.0 1.0 0.0; side: double;`);
+            // Genişletilmiş yeşil temizleyiciyi bağla
+            plane.setAttribute('chromakey-pro', `src: #vid-${item.id}; color: #00FF00; similarity: 0.42; smoothness: 0.08;`);
           } else {
-            // Arkası normal video ise standart göster
             plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.01; shader: flat; side: double;`);
           }
 
           targetEntity.appendChild(plane);
           sceneEl.appendChild(targetEntity);
 
-          // Çizim algılandığında oynat
           targetEntity.addEventListener('targetFound', () => {
             scanBox.style.display = 'none';
             activeVideo = video;
@@ -139,13 +163,10 @@
             video.play().catch(e => console.warn('Video oynatılamadı:', e));
           });
 
-          // Çizim kaybolduğunda durdur
           targetEntity.addEventListener('targetLost', () => {
             scanBox.style.display = 'block';
             video.pause();
-            if (activeVideo === video) {
-              activeVideo = null;
-            }
+            if (activeVideo === video) activeVideo = null;
           });
         });
       } catch (err) {
@@ -153,30 +174,18 @@
       }
     }
 
-    // Ses Aç / Kapat
     soundBtn.addEventListener('click', () => {
       isMuted = !isMuted;
       soundBtn.textContent = isMuted ? '🔇' : '🔊';
-
-      loadedVideos.forEach(v => {
-        v.muted = isMuted;
-      });
-
-      if (activeVideo) {
-        activeVideo.muted = isMuted;
-      }
+      loadedVideos.forEach(v => v.muted = isMuted);
+      if (activeVideo) activeVideo.muted = isMuted;
     });
 
-    // Başlatma ve iOS Donanım Kilidini Açma
     startBtn.addEventListener('click', async () => {
-      loadedVideos.forEach(v => {
-        v.play().then(() => v.pause()).catch(() => {});
-      });
-
+      loadedVideos.forEach(v => v.play().then(() => v.pause()).catch(() => {}));
       overlay.style.display = 'none';
       scanBox.style.display = 'block';
       soundBtn.style.display = 'flex';
-
       const arSystem = sceneEl.systems['mindar-image-system'];
       await arSystem.start();
     });
