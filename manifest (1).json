@@ -46,5 +46,21 @@
     "chromakey": true,
     "width": 1,
     "height": 0.5625
+  },
+  {
+    "id": 6,
+    "title": "cizim07",
+    "video": "./assets/anim07.mp4",
+    "chromakey": true,
+    "width": 1,
+    "height": 0.5625
+  },
+  {
+    "id": 7,
+    "title": "IMG_6109",
+    "video": "./assets/IMG_6109.mp4",
+    "chromakey": true,
+    "width": 1,
+    "height": 0.5625
   }
 ]
