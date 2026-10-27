@@ -68,7 +68,7 @@
     "title": "image09_mrdoner",
     "video": "./assets/anim09_mrdoner.mp4",
     "chromakey": true,
-    "width": 1,
+    "width": 0.5625,
     "height": 1
   }
 ]
