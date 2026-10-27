@@ -62,5 +62,13 @@
     "chromakey": true,
     "width": 1,
     "height": 0.5625
+  },
+  {
+    "id": 8,
+    "title": "image09_mrdoner",
+    "video": "./assets/anim09_mrdoner.mp4",
+    "chromakey": true,
+    "width": 1,
+    "height": 0.5625
   }
 ]
