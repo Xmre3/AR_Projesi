@@ -16,6 +16,30 @@
     #start-btn { margin-top: 20px; padding: 15px 32px; font-size: 17px; font-weight: bold; background: #007aff; color: white; border: none; border-radius: 30px; cursor: pointer; }
     #scan-box { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 250px; height: 250px; border: 2px dashed rgba(255,255,255,0.45); border-radius: 16px; pointer-events: none; display: none; z-index: 10; }
     #sound-btn { position: fixed; top: env(safe-area-inset-top, 20px); right: 20px; z-index: 1000; width: 50px; height: 50px; border-radius: 50%; background: rgba(0, 0, 0, 0.65); border: 1px solid rgba(255, 255, 255, 0.3); color: white; font-size: 22px; cursor: pointer; display: none; align-items: center; justify-content: center; }
+
+    /* Ko-fi Sabit Destek Butonu */
+    #donate-btn {
+      position: fixed;
+      bottom: max(25px, env(safe-area-inset-bottom, 25px));
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 13px 26px;
+      background: #ffdd00;
+      color: #000;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      border-radius: 30px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+      z-index: 1000;
+      display: none;
+      transition: transform 0.2s, opacity 0.2s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #donate-btn:active {
+      transform: translateX(-50%) scale(0.95);
+    }
   </style>
 
   <!-- YÜKSEK TOLERANSLI GELİŞMİŞ YEŞİL PERDE GÖLGELENDİRİCİSİ -->
@@ -24,7 +48,7 @@
       schema: {
         src: { type: 'selector' },
         color: { type: 'color', default: '#00FF00' },
-        similarity: { type: 'number', default: 0.42 }, // Yeşil silme aralığı (0.42 geniş bir yeşil havuzunu siler)
+        similarity: { type: 'number', default: 0.42 }, // Yeşil silme aralığı
         smoothness: { type: 'number', default: 0.08 }  // Kenar yumuşaklığı
       },
       init: function () {
@@ -59,15 +83,9 @@
 
             void main() {
               vec4 texColor = texture2D(uTexture, vUv);
-              
-              // Renk farkını hesapla (Öklid mesafesi)
               float diff = distance(texColor.rgb, uColor);
-              
-              // Tolerans aralığına göre alfa değerini belirle
               float alpha = smoothstep(uSimilarity, uSimilarity + uSmoothness, diff);
-              
-              if (alpha < 0.02) discard; // Arka planı tamamen yok et
-
+              if (alpha < 0.02) discard;
               gl_FragColor = vec4(texColor.rgb, alpha);
             }
           `,
@@ -78,10 +96,6 @@
         this.el.getObject3D('mesh').material = this.material;
       }
     });
-    document.getElementById('ar-donate-plane').addEventListener('click', () => {
-  window.open('https://ko-fi.com/triplehead', '_blank');
-});
-    
   </script>
 </head>
 <body>
@@ -96,6 +110,11 @@
 
   <div id="scan-box"></div>
   <button id="sound-btn" aria-label="Sesi Aç/Kapat">🔇</button>
+
+  <!-- Sabit Ko-fi Butonu -->
+  <a id="donate-btn" href="https://ko-fi.com/triplehead" target="_blank" rel="noopener">
+    ☕ Sanatçıya Destek Ol
+  </a>
 
   <a-scene 
     id="ar-scene"
@@ -116,6 +135,7 @@
     const startBtn = document.getElementById('start-btn');
     const scanBox = document.getElementById('scan-box');
     const soundBtn = document.getElementById('sound-btn');
+    const donateBtn = document.getElementById('donate-btn');
 
     let loadedVideos = [];
     let isMuted = true;
@@ -151,7 +171,6 @@
           plane.setAttribute('position', '0 0 0');
 
           if (item.chromakey === true) {
-            // Genişletilmiş yeşil temizleyiciyi bağla
             plane.setAttribute('chromakey-pro', `src: #vid-${item.id}; color: #00FF00; similarity: 0.42; smoothness: 0.08;`);
           } else {
             plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.01; shader: flat; side: double;`);
@@ -160,13 +179,16 @@
           targetEntity.appendChild(plane);
           sceneEl.appendChild(targetEntity);
 
+          // Çizim bulunduğunda
           targetEntity.addEventListener('targetFound', () => {
             scanBox.style.display = 'none';
+            donateBtn.style.display = 'block'; // Çizim algılandığında butonu göster
             activeVideo = video;
             video.muted = isMuted;
             video.play().catch(e => console.warn('Video oynatılamadı:', e));
           });
 
+          // Çizim kaybolduğunda
           targetEntity.addEventListener('targetLost', () => {
             scanBox.style.display = 'block';
             video.pause();
@@ -196,32 +218,5 @@
 
     initAR();
   </script>
-  <!-- Ekranın altında duracak buton -->
-  <a id="donate-btn" href="https://ko-fi.com/triplehead" target="_blank" rel="noopener">
-    ☕ Sanatçıya Destek Ol
-  </a>
-  <style>
-    #donate-btn {
-      position: fixed;
-      bottom: 25px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 12px 24px;
-      background: #ffdd00;
-      color: #000;
-      font-family: sans-serif;
-      font-size: 15px;
-      font-weight: bold;
-      text-decoration: none;
-      border-radius: 30px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-      z-index: 1000;
-      display: none;
-      transition: transform 0.2s, opacity 0.2s;
-    }
-    #donate-btn:active {
-      transform: translateX(-50%) scale(0.95);
-    }
-  </style>
 </body>
 </html>
