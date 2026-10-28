@@ -2,146 +2,102 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Canlı Çizimler AR</title>
   
-  <!-- A-Frame ve MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #000;
-    }
-
-    /* Başlangıç Ekranı */
-    #overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(10, 10, 15, 0.94);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 99999;
-      color: #fff;
-      text-align: center;
-      padding: 24px;
-    }
-
-    .modal-card {
-      max-width: 360px;
-      padding: 32px 24px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 24px;
-      backdrop-filter: blur(16px);
-    }
-
-    h1 { font-size: 22px; margin-bottom: 12px; font-weight: 700; }
-    p { font-size: 15px; line-height: 1.5; color: #bbb; margin-bottom: 24px; }
-
-    #start-btn {
-      width: 100%;
-      padding: 16px;
-      font-size: 17px;
-      font-weight: 600;
-      color: #fff;
-      background: #0071e3;
-      border: none;
-      border-radius: 14px;
-      cursor: pointer;
-      box-shadow: 0 4px 14px rgba(0, 113, 227, 0.4);
-    }
-    #start-btn:active { background: #005bb5; }
-
-    /* Kamera Tarama Kılavuz Çerçevesi */
-    #scan-box {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 250px;
-      height: 250px;
-      border: 2px dashed rgba(255, 255, 255, 0.35);
-      border-radius: 20px;
-      pointer-events: none;
-      display: none;
-      z-index: 50;
-    }
-
-    /* Ekranda Sabit Duran Ko-fi Destek Butonu */
-    #fixed-donate-btn {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px); /* Başlangıçta ekran dışı */
-      opacity: 0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 14px 22px;
-      background: #ff5e5b;
-      color: #ffffff;
-      font-size: 15px;
-      font-weight: 700;
-      text-decoration: none;
-      border-radius: 50px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(255, 94, 91, 0.4);
-      z-index: 1000;
-      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
-      cursor: pointer;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    #fixed-donate-btn.visible {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
-
-    #fixed-donate-btn:active {
-      transform: translateX(-50%) scale(0.95);
-    }
-
-    #fixed-donate-btn svg {
-      width: 20px;
-      height: 20px;
-      fill: currentColor;
-    }
+    body { margin: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; }
+    #overlay { position: fixed; inset: 0; background: rgba(10, 10, 15, 0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; color: white; text-align: center; padding: 24px; }
+    .card { max-width: 360px; padding: 28px 20px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 18px; backdrop-filter: blur(10px); }
+    #start-btn { margin-top: 20px; padding: 15px 32px; font-size: 17px; font-weight: bold; background: #007aff; color: white; border: none; border-radius: 30px; cursor: pointer; }
+    #scan-box { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 250px; height: 250px; border: 2px dashed rgba(255,255,255,0.45); border-radius: 16px; pointer-events: none; display: none; z-index: 10; }
+    #sound-btn { position: fixed; top: env(safe-area-inset-top, 20px); right: 20px; z-index: 1000; width: 50px; height: 50px; border-radius: 50%; background: rgba(0, 0, 0, 0.65); border: 1px solid rgba(255, 255, 255, 0.3); color: white; font-size: 22px; cursor: pointer; display: none; align-items: center; justify-content: center; }
   </style>
+
+  <!-- YÜKSEK TOLERANSLI GELİŞMİŞ YEŞİL PERDE GÖLGELENDİRİCİSİ -->
+  <script>
+    AFRAME.registerComponent('chromakey-pro', {
+      schema: {
+        src: { type: 'selector' },
+        color: { type: 'color', default: '#00FF00' },
+        similarity: { type: 'number', default: 0.42 }, // Yeşil silme aralığı (0.42 geniş bir yeşil havuzunu siler)
+        smoothness: { type: 'number', default: 0.08 }  // Kenar yumuşaklığı
+      },
+      init: function () {
+        const videoEl = this.data.src;
+        const texture = new THREE.VideoTexture(videoEl);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.format = THREE.RGBAFormat;
+
+        const targetColor = new THREE.Color(this.data.color);
+
+        this.material = new THREE.ShaderMaterial({
+          uniforms: {
+            uTexture: { value: texture },
+            uColor: { value: targetColor },
+            uSimilarity: { value: this.data.similarity },
+            uSmoothness: { value: this.data.smoothness }
+          },
+          vertexShader: `
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform sampler2D uTexture;
+            uniform vec3 uColor;
+            uniform float uSimilarity;
+            uniform float uSmoothness;
+            varying vec2 vUv;
+
+            void main() {
+              vec4 texColor = texture2D(uTexture, vUv);
+              
+              // Renk farkını hesapla (Öklid mesafesi)
+              float diff = distance(texColor.rgb, uColor);
+              
+              // Tolerans aralığına göre alfa değerini belirle
+              float alpha = smoothstep(uSimilarity, uSimilarity + uSmoothness, diff);
+              
+              if (alpha < 0.02) discard; // Arka planı tamamen yok et
+
+              gl_FragColor = vec4(texColor.rgb, alpha);
+            }
+          `,
+          transparent: true,
+          side: THREE.DoubleSide
+        });
+
+        this.el.getObject3D('mesh').material = this.material;
+      }
+    });
+  </script>
 </head>
 <body>
 
-  <!-- Başlangıç Ekranı -->
   <div id="overlay">
-    <div class="modal-card">
-      <h1>AR Deneyimini Başlat</h1>
-      <p>Kameranızı çizime doğrultarak animasyonu canlandırabilirsiniz.</p>
+    <div class="card">
+      <h2 style="margin: 0 0 10px 0;">AR Deneyimi</h2>
+      <p style="margin: 0; color: #ccc; font-size: 15px;">Kamerayı çizime tutarak animasyonu başlatın.</p>
       <button id="start-btn">Kamerayı Aç</button>
     </div>
   </div>
 
   <div id="scan-box"></div>
+  <button id="sound-btn" aria-label="Sesi Aç/Kapat">🔇</button>
 
-  <!-- Ekranda Sabit Duran Destek Butonu (SVG Fincan İkonlu) -->
-  <a id="fixed-donate-btn" href="https://ko-fi.com/seninkullaniciadin" target="_blank" rel="noopener">
-    <svg viewBox="0 0 24 24">
-      <path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/>
-    </svg>
-    <span>Sanatçıya Destek Ol (Apple Pay)</span>
-  </a>
-
-  <!-- AR Sahnesi -->
   <a-scene 
     id="ar-scene"
-    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no;" 
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; filterMinCF: 0.001; filterBeta: 1000;" 
     color-space="sRGB" 
-    renderer="colorManagement: true, physicallyCorrectLights" 
+    renderer="colorManagement: true, physicallyCorrectLights: false, alpha: true" 
     vr-mode-ui="enabled: false" 
     device-orientation-permission-ui="enabled: false">
     
@@ -155,7 +111,11 @@
     const overlay = document.getElementById('overlay');
     const startBtn = document.getElementById('start-btn');
     const scanBox = document.getElementById('scan-box');
-    const donateBtn = document.getElementById('fixed-donate-btn');
+    const soundBtn = document.getElementById('sound-btn');
+
+    let loadedVideos = [];
+    let isMuted = true;
+    let activeVideo = null;
 
     async function initAR() {
       try {
@@ -163,70 +123,101 @@
         const items = await response.json();
 
         items.forEach(item => {
-          // 1. Dinamik Video Öğesi
           const video = document.createElement('video');
           video.setAttribute('id', `vid-${item.id}`);
-          video.setAttribute('data-src', item.video);
+          video.setAttribute('src', item.video);
           video.setAttribute('loop', 'true');
           video.setAttribute('playsinline', '');
           video.setAttribute('webkit-playsinline', '');
-          video.setAttribute('preload', 'none');
-          assetContainer.appendChild(video);
+          video.setAttribute('crossorigin', 'anonymous');
+          video.setAttribute('preload', 'auto');
+          video.muted = true;
+          video.setAttribute('muted', '');
 
-          // 2. MindAR Hedef Entity
+          assetContainer.appendChild(video);
+          loadedVideos.push(video);
+
           const targetEntity = document.createElement('a-entity');
           targetEntity.setAttribute('mindar-image-target', `targetIndex: ${item.id}`);
           targetEntity.setAttribute('class', 'ar-item');
 
-          // 3. Video Düzlemi
-          const videoPlane = document.createElement('a-video');
-          videoPlane.setAttribute('src', `#vid-${item.id}`);
-          videoPlane.setAttribute('width', item.width || 1.0);
-          videoPlane.setAttribute('height', item.height || 1.0);
-          videoPlane.setAttribute('position', item.position || '0 0 0.01');
-          videoPlane.setAttribute('rotation', item.rotation || '0 0 0');
-          targetEntity.appendChild(videoPlane);
+          const plane = document.createElement('a-plane');
+          plane.setAttribute('width', item.width || 1);
+          plane.setAttribute('height', item.height || 1);
+          plane.setAttribute('position', '0 0 0');
 
+          if (item.chromakey === true) {
+            // Genişletilmiş yeşil temizleyiciyi bağla
+            plane.setAttribute('chromakey-pro', `src: #vid-${item.id}; color: #00FF00; similarity: 0.42; smoothness: 0.08;`);
+          } else {
+            plane.setAttribute('material', `src: #vid-${item.id}; transparent: true; alphaTest: 0.01; shader: flat; side: double;`);
+          }
+
+          targetEntity.appendChild(plane);
           sceneEl.appendChild(targetEntity);
 
-          // Çizim göründüğünde: Video başlar, sabit buton ekrana yukarı fırlar
           targetEntity.addEventListener('targetFound', () => {
             scanBox.style.display = 'none';
-            donateBtn.classList.add('visible');
-
-            if (!video.getAttribute('src')) {
-              video.setAttribute('src', video.getAttribute('data-src'));
-              video.load();
-            }
-
-            video.play().catch(() => {
-              video.muted = true;
-              video.play();
-            });
+            activeVideo = video;
+            video.muted = isMuted;
+            video.play().catch(e => console.warn('Video oynatılamadı:', e));
           });
 
-          // Çizim kadrajdan çıktığında: Video durur (İsteğe bağlı: Buton ekranda kalmaya devam eder)
           targetEntity.addEventListener('targetLost', () => {
             scanBox.style.display = 'block';
             video.pause();
-            // Butonun çizim kaybolunca gizlenmesini istersen aşağıdaki satırı açabilirsin:
-            // donateBtn.classList.remove('visible');
+            if (activeVideo === video) activeVideo = null;
           });
         });
       } catch (err) {
-        console.error('manifest.json okunurken hata oluştu:', err);
+        console.error("Manifest yükleme hatası:", err);
       }
     }
 
+    soundBtn.addEventListener('click', () => {
+      isMuted = !isMuted;
+      soundBtn.textContent = isMuted ? '🔇' : '🔊';
+      loadedVideos.forEach(v => v.muted = isMuted);
+      if (activeVideo) activeVideo.muted = isMuted;
+    });
+
     startBtn.addEventListener('click', async () => {
+      loadedVideos.forEach(v => v.play().then(() => v.pause()).catch(() => {}));
       overlay.style.display = 'none';
       scanBox.style.display = 'block';
-
+      soundBtn.style.display = 'flex';
       const arSystem = sceneEl.systems['mindar-image-system'];
       await arSystem.start();
     });
 
     initAR();
   </script>
+  <!-- Ekranın altında duracak buton -->
+  <a id="donate-btn" href="https://ko-fi.com/triplehead" target="_blank" rel="noopener">
+    ☕ Sanatçıya Destek Ol
+  </a>
+  <style>
+    #donate-btn {
+      position: fixed;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      background: #ffdd00;
+      color: #000;
+      font-family: sans-serif;
+      font-size: 15px;
+      font-weight: bold;
+      text-decoration: none;
+      border-radius: 30px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      z-index: 1000;
+      display: none;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    #donate-btn:active {
+      transform: translateX(-50%) scale(0.95);
+    }
+  </style>
 </body>
 </html>
