@@ -86,5 +86,13 @@
     "chromakey": true,
     "width": 1.1250,
     "height": 2
+  },
+  {
+    "id": 11,
+    "title": "image12",
+    "video": "./assets/anim12.mp4",
+    "chromakey": true,
+    "width": 1.1250,
+    "height": 2
   }
 ]
